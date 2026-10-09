@@ -6,7 +6,7 @@ build-backend = "scikit_build_core.build"
 # The distribution is rooferpy because roofer is taken on PyPI by an unrelated
 # project. The module it installs is still imported as roofer.
 name = "rooferpy"
-version = "1.0.0"
+version = "1.0.0+wheels"  # 1.0.0 with the wheels branch, for Maquette until rooferpy is published
 description = "Python bindings for roofer, automatic LoD2 building reconstruction from point clouds"
 readme = "README.md"
 license = "GPL-3.0-or-later"
