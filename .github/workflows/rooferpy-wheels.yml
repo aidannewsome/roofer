@@ -1,0 +1,70 @@
+name: Python wheels
+
+# Builds wheels of the Python bindings (rooferpy) with cibuildwheel, as set up
+# in rooferpy/pyproject.toml: Conan builds the dependencies statically and each
+# wheel is tested by reconstructing a small house. Wheels are checked on pull
+# requests that touch the library or the bindings, and published to PyPI when
+# a GitHub release is published.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/rooferpy-wheels.yml"
+      - "CMakeLists.txt"
+      - "conanfile.py"
+      - "include/**"
+      - "rooferpy/**"
+      - "src/core/**"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  wheels:
+    name: Wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pypa/cibuildwheel@v4.3.0
+        with:
+          package-dir: rooferpy
+      - uses: actions/upload-artifact@v6
+        with:
+          name: rooferpy-wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  publish:
+    name: Publish to PyPI
+    # A fork's release builds the wheels but never publishes them.
+    if: github.event_name == 'release' && github.repository == '3DBAG/roofer'
+    needs: [wheels]
+    runs-on: ubuntu-24.04
+    # PyPI trusted publishing: no token is stored, PyPI trusts this workflow in
+    # this repository.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/rooferpy
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: rooferpy-wheels-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/*
+      - uses: pypa/gh-action-pypi-publish@release/v1

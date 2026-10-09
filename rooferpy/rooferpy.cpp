@@ -154,7 +154,9 @@ namespace roofer {
 
 }  // namespace roofer
 
-PYBIND11_MODULE(roofer, m) {
+// reconstruct and triangulate_mesh hold no state between calls, so the module
+// runs without the GIL on free-threaded Python.
+PYBIND11_MODULE(roofer, m, py::mod_gil_not_used()) {
   py::class_<roofer::ReconstructionConfig>(m, "ReconstructionConfig")
       .def(py::init<>())
       .def_readwrite("complexity_factor",

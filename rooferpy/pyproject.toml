@@ -1,0 +1,72 @@
+[build-system]
+requires = ["scikit-build-core>=0.11"]
+build-backend = "scikit_build_core.build"
+
+[project]
+# The distribution is rooferpy because roofer is taken on PyPI by an unrelated
+# project. The module it installs is still imported as roofer.
+name = "rooferpy"
+version = "1.0.0"
+description = "Python bindings for roofer, automatic LoD2 building reconstruction from point clouds"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.10"
+authors = [
+  { name = "Ravi Peters" },
+  { name = "Balazs Dukai" },
+  { name = "Ivan Paden" },
+]
+classifiers = [
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: Free Threading :: 2 - Beta",
+  "Topic :: Scientific/Engineering :: GIS",
+]
+
+[project.urls]
+Homepage = "https://github.com/3DBAG/roofer"
+Documentation = "https://3dbag.github.io/roofer/"
+Issues = "https://github.com/3DBAG/roofer/issues"
+
+[tool.scikit-build]
+# The bindings are built from the whole roofer source tree, one level up.
+cmake.source-dir = ".."
+cmake.version = ">=3.25"
+cmake.build-type = "Release"
+build.targets = ["rooferpy"]
+install.components = ["rooferpy"]
+# The dependencies (CGAL, Eigen, fmt and pybind11) are found by find_package,
+# from a Conan toolchain given in CMAKE_TOOLCHAIN_FILE or from a Nix shell, as
+# in this folder's README.
+
+[tool.scikit-build.cmake.define]
+RF_BUILD_BINDINGS = "ON"
+RF_BUILD_APPS = "OFF"
+RF_BUILD_TESTING = "OFF"
+RF_USE_LOGGER_SPDLOG = "OFF"
+RF_USE_VAL3DITY = "OFF"
+RF_USE_CPM = "OFF"
+
+[tool.cibuildwheel]
+# Run from the repository root: cibuildwheel rooferpy
+build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*", "cp314t-*"]
+skip = ["*-musllinux_*"]
+archs = ["auto64"]
+# Conan builds the dependencies once per platform, statically, so the wheels
+# need no other libraries. Boost is only used through CGAL's headers.
+before-all = [
+  "pipx install 'conan==2.*'",
+  "conan profile detect --force",
+  """conan install {project} --output-folder={project}/build-wheels \
+  --build=missing --settings=build_type=Release --settings=compiler.cppstd=20 \
+  $CONAN_SETTINGS --options='&:build_apps=False' --options='&:use_spdlog=False' \
+  --options='&:use_val3dity=False' --options='&:build_bindings=True' \
+  --options='&:build_testing=False' --options='boost/*:header_only=True'""",
+]
+environment = { CMAKE_TOOLCHAIN_FILE = "$PWD/build-wheels/conan_toolchain.cmake" }
+test-sources = ["rooferpy/tests"]
+test-command = "python -m unittest discover -v -s rooferpy/tests"
+
+[tool.cibuildwheel.macos]
+# The dependencies are built for the same macOS as the wheels.
+environment = { CMAKE_TOOLCHAIN_FILE = "$PWD/build-wheels/conan_toolchain.cmake", MACOSX_DEPLOYMENT_TARGET = "11.0", CONAN_SETTINGS = "--settings=os.version=11.0" }

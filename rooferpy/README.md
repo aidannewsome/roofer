@@ -46,3 +46,26 @@ cmake --build build_python --target rooferpy
 ```
 
 The rooferpy library will be located in `build_python/rooferpy/roofer.cpython-<version-and-system>.so`. Import the .so file (e.g. place it in the same folder as .py script) to use roofer python API.
+
+## Wheels
+
+`pyproject.toml` in this folder builds the bindings as a wheel named `rooferpy`
+(`roofer` is taken on PyPI by an unrelated project). The module is still
+imported as `roofer`. The dependencies are found the same way as above, so give
+CMake the Conan toolchain, or build inside `nix develop`:
+
+```
+pip wheel ./rooferpy --config-settings=cmake.define.CMAKE_TOOLCHAIN_FILE=$PWD/build_python/conan_toolchain.cmake
+```
+
+Wheels for every supported CPython, free-threaded 3.14t included, are built
+with cibuildwheel, which runs the Conan install itself and tests each wheel
+with `rooferpy/tests`:
+
+```
+pipx run cibuildwheel rooferpy
+```
+
+The dependencies are linked statically, so the wheels need nothing else
+installed. The GitHub workflow `rooferpy-wheels.yml` builds them for Linux
+x86_64 and macOS arm64, and publishes them to PyPI when a release is published.

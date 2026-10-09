@@ -17,6 +17,15 @@ target_link_libraries(
 
 set_target_properties(rooferpy PROPERTIES OUTPUT_NAME "roofer")
 
-install(TARGETS rooferpy
-        DESTINATION "lib/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages"
-)
+if(SKBUILD)
+  # Built as a wheel by scikit-build-core, from pyproject.toml in this folder:
+  # the module goes at the root of the wheel, with roofer's licence.
+  install(TARGETS rooferpy DESTINATION . COMPONENT rooferpy)
+  install(FILES "${PROJECT_SOURCE_DIR}/LICENSE"
+          DESTINATION "${SKBUILD_METADATA_DIR}/licenses"
+          COMPONENT rooferpy)
+else()
+  install(TARGETS rooferpy
+          DESTINATION "lib/python${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}/site-packages"
+  )
+endif()
