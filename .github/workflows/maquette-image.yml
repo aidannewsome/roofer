@@ -1,0 +1,78 @@
+# Maquette's Roofer image for linux/amd64 and linux/arm64, each built natively on GitHub's runners, pushed to GitHub's
+# registry as one tag that serves both. Run by hand on the commit to build: Actions, Maquette image, Run workflow.
+name: Maquette image
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Image tag
+        required: true
+        default: v1.1.0-beta.1-maquette.2
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/roofer
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./
+          file: ./docker/Dockerfile
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            JOBS=4
+            VERSION=${{ inputs.tag }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+      - run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.runner }}
+          path: /tmp/digests/*
+          retention-days: 1
+
+  merge:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+      - working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create -t "$IMAGE:${{ inputs.tag }}" $(printf "$IMAGE@sha256:%s " *)
+          docker buildx imagetools inspect "$IMAGE:${{ inputs.tag }}"
