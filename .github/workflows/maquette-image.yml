@@ -1,17 +1,14 @@
 # Maquette's Roofer image for linux/amd64 and linux/arm64, each built natively on GitHub's runners, pushed to GitHub's
-# registry as one tag that serves both. Run by hand on the commit to build: Actions, Maquette image, Run workflow.
+# registry as one tag that serves both. Built on every push to this branch, as the fork's main is upstream's.
 name: Maquette image
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: Image tag
-        required: true
-        default: v1.1.0-beta.1-maquette.2
+  push:
+    branches: [maquette-image]
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/roofer
+  TAG: v1.1.0-beta.1-maquette.2
 
 jobs:
   build:
@@ -42,7 +39,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           build-args: |
             JOBS=4
-            VERSION=${{ inputs.tag }}
+            VERSION=${{ env.TAG }}
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
       - run: |
           mkdir -p /tmp/digests
@@ -74,5 +71,5 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - working-directory: /tmp/digests
         run: |
-          docker buildx imagetools create -t "$IMAGE:${{ inputs.tag }}" $(printf "$IMAGE@sha256:%s " *)
-          docker buildx imagetools inspect "$IMAGE:${{ inputs.tag }}"
+          docker buildx imagetools create -t "$IMAGE:$TAG" $(printf "$IMAGE@sha256:%s " *)
+          docker buildx imagetools inspect "$IMAGE:$TAG"
